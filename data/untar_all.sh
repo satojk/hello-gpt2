@@ -4,6 +4,9 @@
 # case if you have just downloaded openwebtext.tar.xz and then run tar -xf 
 # openwebtext.tar.xz.
 
+# WARNING: This script will delete all .xz files, in ./openwebtext, leaving 
+# behind only their extracted contents.
+
 cd openwebtext;
 
 for file in $(ls); do
@@ -12,6 +15,7 @@ for file in $(ls); do
     mv $file ${file%.*};
     cd ${file%.*};
     tar -xvf $file;
+    rm $file;
     cd ..;
   fi
 done;
