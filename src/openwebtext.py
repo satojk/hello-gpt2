@@ -4,12 +4,12 @@ import random
 
 from typing import Generator
 
-OPENWEBTEXT_PATH = 'data/openwebtext'
+__OPENWEBTEXT_PATH = 'data/openwebtext'
 
 class OpenWebTextEngine(object):
 
     def __init__(self) -> None:
-        self.openwebtext_path = OPENWEBTEXT_PATH
+        self.openwebtext_path = __OPENWEBTEXT_PATH
 
 
     def get_random_document_path(self) -> str:
