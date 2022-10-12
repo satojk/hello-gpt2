@@ -56,7 +56,7 @@ class GPT2Engine(object):
         batch_beg = 0
         batch_end = batch_size
         predictions = []
-        while batch_end < prompts.shape[0]:
+        while batch_beg < prompts.shape[0]:
             batch = prompts[batch_beg:batch_end]
             predictions.append(self.model.generate(input_ids=batch,
                                                    max_length=window_size+1,
