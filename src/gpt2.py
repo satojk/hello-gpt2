@@ -1,6 +1,6 @@
 import torch
 
-from transformers import GPT2Tokenizer, GPT2LMHeadModel
+from transformers import GPT2Tokenizer, GPT2LMHeadModel, GPT2Model
 
 GPT2_MAX_SEQ_LEN = 1024
 
@@ -10,18 +10,28 @@ class GPT2Engine(object):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
         self.tokenizer.pad_token = self.tokenizer.eos_token
-        self.model = GPT2LMHeadModel.from_pretrained(
-                'gpt2',
-                pad_token_id=self.tokenizer.eos_token_id,
-                temperature=0)
-        if self.device == 'cuda':
-            self.model.eval().cuda()
-        else:
-            self.model.eval()
 
 
     def tokenize(self, text: str) -> torch.Tensor:
         return self.tokenizer.encode(text, return_tensors='pt').to(self.device)
+
+
+    def detokenize(self, tokens: torch.Tensor) -> str:
+        return self.tokenizer.decode(tokens, clean_up_tokenization_spaces=True)
+
+
+class GPT2LMEngine(GPT2Engine):
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.model = GPT2LMHeadModel.from_pretrained(
+                'gpt2',
+                pad_token_id=self.tokenizer.eos_token_id,
+                temperature=1)
+        if self.device == 'cuda':
+            self.model.eval().cuda()
+        else:
+            self.model.eval()
 
 
     def generate_text(self, prompt: str, num_tokens: int=5, num_candidates: int=1) -> list:
@@ -32,7 +42,7 @@ class GPT2Engine(object):
         output_token_ids = self.model.generate(input_ids=input_token_ids,
                                                max_length=len(input_token_ids[0]) + num_tokens,
                                                do_sample=False)
-        return self.tokenizer.decode(output_token_ids[0], clean_up_tokenization_spaces=True)
+        return self.detokenize(output_token_ids[0])
 
 
     def predict_document(self, document: str, window_size: int=25, batch_size: int=100) -> tuple:
@@ -65,3 +75,26 @@ class GPT2Engine(object):
             batch_end += batch_size
         return (torch.cat(predictions, dim=0),
                 input_token_ids[:, window_size:].view(-1, 1))
+
+
+class GPT2ModelEngine(GPT2Engine):
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.model = GPT2Model.from_pretrained(
+                'gpt2',
+                pad_token_id=self.tokenizer.eos_token_id,
+                temperature=1)
+        if self.device == 'cuda':
+            self.model.eval().cuda()
+        else:
+            self.model.eval()
+
+
+    def get_token_embeddings(self, input_token_ids: torch.Tensor) -> torch.Tensor:
+        with torch.no_grad():
+            return self.model(input_token_ids).last_hidden_state
+
+
+    def get_text_embeddings(self, prompt: str) -> torch.Tensor:
+        return self.get_token_embeddings(self.tokenize(prompt))
