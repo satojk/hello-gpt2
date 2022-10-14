@@ -45,11 +45,12 @@ class GPT2LMEngine(GPT2Engine):
         return self.detokenize(output_token_ids[0])
 
 
-    def predict_document(self, document: str, window_size: int=25, batch_size: int=100) -> tuple:
+    def predict_document(self, document: str, window_size: int=25, batch_size: int=100, ignore_set: iter=[]) -> tuple:
         '''
         Slide a window of window_size tokens across an entire document. At each
         step, use the window contents as a prompt, and generate a prediction
-        for the next token.
+        for the next token (except when the token to be predicted is in
+        ignore_set)
 
         Return a pair of (predictions, true_tokens), where predictions is a
         large 2D tensor where each row is a prediction (window_size tokens from
@@ -63,6 +64,11 @@ class GPT2LMEngine(GPT2Engine):
         if input_token_ids.shape[1] < window_size - 1:
             raise ValueError('Window contains entire document.')
         prompts = input_token_ids.squeeze(0).unfold(0, window_size, 1)[:-1]
+        true_tokens = input_token_ids[:, window_size:].view(-1, 1)
+        for token_id in ignore_set:
+            should_keep_prompt = true_tokens != token_id
+            prompts = prompts[should_keep_prompt[:, 0]]
+            true_tokens = true_tokens[should_keep_prompt[:, 0]]
         batch_beg = 0
         batch_end = batch_size
         predictions = []
@@ -74,7 +80,7 @@ class GPT2LMEngine(GPT2Engine):
             batch_beg += batch_size
             batch_end += batch_size
         return (torch.cat(predictions, dim=0),
-                input_token_ids[:, window_size:].view(-1, 1))
+                true_tokens)
 
 
 class GPT2ModelEngine(GPT2Engine):

@@ -6,10 +6,12 @@ from tqdm import tqdm
 
 from src.openwebtext import OpenWebTextEngine
 from src.gpt2 import GPT2Engine, GPT2LMEngine
+from src.analysis import filter_incorrect_predictions
 
 __EXPERIMENT_PATH = './data/experiments/test.json'
 __DOCUMENT_DIR_PATH = './data/testtext'
 __OUTPUT_DIR_PATH = './data/testtext_predicted'
+__COMMON_TOKENS_PATH = './data/common_toks.json'
 
 
 def run_experiment(experiment_path: str, gpt: GPT2LMEngine) -> None:
@@ -35,10 +37,28 @@ def predict_documents(document_dir_path: str, output_dir_path: str, gpt: GPT2LME
             pickle.dump((predictions, true_tokens), f)
 
 
+def read_predicted_document(document_path: str, gpt: GPT2LMEngine, ignore_set: iter=[]) -> None:
+    with open(document_path, 'r') as f:
+        document_text = f.read()
+    predictions, true_tokens = gpt.predict_document(document_text, ignore_set=ignore_set)
+    correct_predictions = filter_incorrect_predictions(predictions, true_tokens)
+    for i in range(correct_predictions.shape[0]):
+        print(gpt.detokenize(correct_predictions[i]))
+        inp = input('>>>')
+        if inp == 'q':
+            return
+
+
+def read_predicted_dir(document_dir_path: str, gpt: GPT2LMEngine, ignore_set: iter=[]) -> None:
+    for document_filename in os.listdir(document_dir_path):
+        read_predicted_document(os.path.join(document_dir_path, document_filename), gpt, ignore_set)
+
+
 def main():
+    with open(__COMMON_TOKENS_PATH, 'r') as f:
+        common_toks = json.load(f)[:30]
     gpt = GPT2LMEngine()
-    run_experiment(__EXPERIMENT_PATH, gpt)
-    predict_documents(__DOCUMENT_DIR_PATH, __OUTPUT_DIR_PATH, gpt)
+    read_predicted_dir(__DOCUMENT_DIR_PATH, gpt, ignore_set=[tok_id for tok_id, freq in common_toks[:30]])
 
 
 if __name__ == '__main__':
